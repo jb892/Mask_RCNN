@@ -64,12 +64,10 @@ def Filter(target_id, r):
     class_ids = r['class_ids']
     exclude_id = np.where(class_ids[:] != target_id)
     rois = np.delete(r['rois'], exclude_id, axis=0)
-    masks = np.delete(r['masks'], exclude_id, axis=0)
     class_ids = np.delete(r['class_ids'], exclude_id, axis=0)
     scores = np.delete(r['scores'], exclude_id, axis=0)
     return {
         'rois': rois,
-        'masks': masks,
         'class_ids': class_ids,
         'scores': scores,
     }
@@ -83,14 +81,10 @@ def VideoReader():
         print("--- Detection time: %.2f s seconds ---" % round(time.time() - start_time, 2))
         r = Filter(1, results[0])
         print(r['rois'])
-        print(r['masks'])
         print(r['class_ids'])
         print(r['scores'])
 
-        visualize.display_instances(image, r['rois'], r['masks'], r['class_ids'], class_names, r['scores'])
-        # cv2.imshow("First Frame", image) # Show first frame
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        visualize.display_instances_no_mask(image, r['rois'], r['class_ids'], class_names, r['scores'])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
