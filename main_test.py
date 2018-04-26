@@ -5,6 +5,7 @@ import argparse
 import tensorflow as tf
 import time
 import numpy as np
+import matplotlib.pyplot as plt
 
 ROOT_DIR = os.getcwd()
 sys.path.append(ROOT_DIR)
@@ -25,8 +26,6 @@ class InferenceConfig(coco.CocoConfig):
     # one image at a time. Batch size = GPU_COUNT * IMAGES_PER_GPU
     GPU_COUNT = 1
     IMAGES_PER_GPU = 1
-    RPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)
-
 
 config = InferenceConfig()
 config.display()
@@ -55,11 +54,6 @@ class_names = ['BG', 'person', 'bicycle', 'car', 'motorcycle', 'airplane',
 
 FLAGS = None
 
-def PrintConfiguration():
-    print("Tensorflow Version: ", tf.__version__)
-    print("OpenCV Version: ", cv2.__version__)
-
-
 def Filter(target_id, r):
     class_ids = r['class_ids']
     exclude_id = np.where(class_ids[:] != target_id)
@@ -73,18 +67,37 @@ def Filter(target_id, r):
     }
 
 def VideoReader():
+    # Read Video from a source video file.
     videoCap = cv2.VideoCapture(FLAGS.path)
-    success, image = videoCap.read()
-    if success:
-        start_time = time.time()
-        results = model.detect([image], verbose=1)
-        print("--- Detection time: %.2f s seconds ---" % round(time.time() - start_time, 2))
-        r = Filter(1, results[0])
-        print(r['rois'])
-        print(r['class_ids'])
-        print(r['scores'])
+    ret = True
+    while (ret):
+        # Read frame from the video source
+        ret, frame = videoCap.read()
+        if ret:
+            results = model.detect([frame], verbose=0)
 
-        visualize.display_instances_no_mask(image, r['rois'], r['class_ids'], class_names, r['scores'])
+            # Filter out all detected objects that is not a person(index == 1).
+            r = Filter(1, results[0])
+
+            # Draw bbox
+            if FLAGS.bbox:
+                for b in r['rois']:
+                    y1, x1, y2, x2 = b
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
+
+            # Draw Caption
+            for i, s in enumerate(r['scores']):
+                cv2.putText(frame, ("Person {:.3f}".format(s)), (r['rois'][i][1], r['rois'][i][0]-8), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,255,0), 1, cv2.LINE_AA)
+
+            height, width = frame.shape[:2]
+            # Draw Person Count
+            cv2.putText(frame, ("Person Count: {}".format(len(r['class_ids']))), (10, height - 25), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0,0,255), 2, cv2.LINE_AA)
+
+            # Show Image
+            cv2.imshow("2D Human Counter Demo", frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -103,5 +116,4 @@ if __name__ == "__main__":
 
     FLAGS, unparsed = parser.parse_known_args()
 
-    PrintConfiguration()
     VideoReader()
